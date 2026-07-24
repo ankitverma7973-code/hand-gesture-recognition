@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GestureLab — Real-Time Hand Gesture Recognition</title>
+<meta name="description" content="A computer-vision lab for real-time hand gesture recognition powered by MediaPipe, OpenCV and Flask.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- Animated background blobs -->
+<div class="bg-field" aria-hidden="true">
+  <div class="blob blob-a"></div>
+  <div class="blob blob-b"></div>
+  <div class="grid-overlay"></div>
+</div>
+
+<!-- ============ NAVBAR ============ -->
+<header class="navbar">
+  <div class="navbar-inner">
+    <a href="#top" class="brand">
+      <span class="brand-mark"><i class="fa-solid fa-hand-sparkles"></i></span>
+      <span class="brand-text">Gesture<span class="accent">Lab</span></span>
+    </a>
+    <nav class="nav-links">
+      <a href="#home">Home</a>
+      <a href="#detect">Live Detection</a>
+      <a href="#dashboard">Dashboard</a>
+      <a href="#gestures">Gestures</a>
+      <a href="#canvas">Air Canvas</a>
+      <a href="#control">Gesture Control</a>
+      <a href="#rps">RPS Game</a>
+      <a href="#about">About</a>
+    </nav>
+    <div class="navbar-actions">
+      <button id="themeToggle" class="icon-btn" aria-label="Toggle dark and light mode" title="Toggle theme">
+        <i class="fa-solid fa-moon" id="themeIcon"></i>
+      </button>
+      <a href="#detect" class="btn btn-primary btn-sm">Launch Camera</a>
+    </div>
+    <button id="navToggle" class="icon-btn nav-burger" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero" id="home">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <span class="eyebrow"><i class="fa-solid fa-circle-nodes"></i> Computer Vision · 21-point landmark tracking</span>
+        <h1>Read a hand's<br><span class="accent-text">intent</span>, in real time.</h1>
+        <p class="hero-sub">
+          GestureLab tracks 21 hand landmarks per frame with MediaPipe, then classifies
+          eight distinct gestures on the fly — right from your browser, with confidence
+          scoring and live telemetry.
+        </p>
+        <div class="hero-actions">
+          <a href="#detect" class="btn btn-primary">
+            <i class="fa-solid fa-video"></i> Start Detecting
+          </a>
+          <a href="#gestures" class="btn btn-ghost">
+            View Supported Gestures
+          </a>
+        </div>
+        <div class="hero-stats">
+          <div><strong>21</strong><span>Landmarks / hand</span></div>
+          <div><strong>8</strong><span>Gestures classified</span></div>
+          <div><strong>&lt;40ms</strong><span>Inference latency</span></div>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="hud-frame">
+          <svg viewBox="0 0 320 340" class="hud-hand">
+            <g class="rails" stroke="var(--accent-teal)" stroke-width="2" fill="none" stroke-linecap="round">
+              <path d="M160 300 L160 210 L150 120 L145 70"/>
+              <path d="M160 210 L112 190 L92 118 L84 78"/>
+              <path d="M160 210 L134 205 L122 100 L116 52"/>
+              <path d="M160 210 L172 208 L182 100 L188 55"/>
+              <path d="M160 210 L196 200 L214 128 L222 90"/>
+              <path d="M92 118 L112 190"/>
+              <path d="M122 100 L134 205"/>
+              <path d="M182 100 L172 208"/>
+              <path d="M214 128 L196 200"/>
+            </g>
+            <g class="nodes" fill="var(--accent-violet)">
+              <circle cx="160" cy="300" r="7"/>
+              <circle cx="160" cy="210" r="6"/>
+              <circle cx="150" cy="120" r="5"/>
+              <circle class="tip" cx="145" cy="70" r="7"/>
+              <circle cx="112" cy="190" r="5"/>
+              <circle cx="92" cy="118" r="5"/>
+              <circle class="tip" cx="84" cy="78" r="7"/>
+              <circle cx="134" cy="205" r="5"/>
+              <circle cx="122" cy="100" r="5"/>
+              <circle class="tip" cx="116" cy="52" r="7"/>
+              <circle cx="172" cy="208" r="5"/>
+              <circle cx="182" cy="100" r="5"/>
+              <circle class="tip" cx="188" cy="55" r="7"/>
+              <circle cx="196" cy="200" r="5"/>
+              <circle cx="214" cy="128" r="5"/>
+              <circle class="tip" cx="222" cy="90" r="7"/>
+            </g>
+          </svg>
+          <div class="hud-scanline"></div>
+          <div class="hud-readout">
+            <span>x:0.482</span><span>y:0.317</span><span>z:-0.021</span>
+          </div>
+          <span class="hud-badge">21 / 21 landmarks locked</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LIVE DETECTION ============ -->
+  <section class="detect" id="detect">
+    <div class="section-head">
+      <span class="eyebrow"><i class="fa-solid fa-satellite-dish"></i> Live Feed</span>
+      <h2>Live Detection</h2>
+      <p>Grant camera access, then hold a gesture steady in frame. Landmarks and gesture classification update every frame.</p>
+    </div>
+
+    <div class="detect-grid">
+      <!-- Video Panel -->
+      <div class="video-panel glass">
+        <div class="video-frame" id="videoFrame">
+          <img id="videoStream" alt="Live hand detection feed" />
+          <div class="video-placeholder" id="videoPlaceholder">
+            <i class="fa-solid fa-camera-retro"></i>
+            <p>Camera is off</p>
+            <span>Click "Start Camera" to begin real-time gesture detection.</span>
+          </div>
+          <div class="video-loader" id="videoLoader">
+            <div class="spinner"></div>
+            <p>Initializing MediaPipe pipeline…</p>
+          </div>
+          <div class="corner tl"></div><div class="corner tr"></div>
+          <div class="corner bl"></div><div class="corner br"></div>
+          <span class="rec-badge" id="recBadge"><i class="fa-solid fa-circle"></i> LIVE</span>
+        </div>
+
+        <div class="video-controls">
+          <button id="startBtn" class="btn btn-primary">
+            <i class="fa-solid fa-play"></i> Start Camera
+          </button>
+          <button id="stopBtn" class="btn btn-danger" disabled>
+            <i class="fa-solid fa-stop"></i> Stop Camera
+          </button>
+          <button id="voiceToggleBtn" class="icon-btn" title="Toggle voice announcements" aria-pressed="false">
+            <i class="fa-solid fa-volume-xmark" id="voiceToggleIcon"></i>
+          </button>
+          <span class="status-pill" id="statusPill">
+            <i class="fa-solid fa-circle"></i> <span>Idle</span>
+          </span>
+        </div>
+
+        <div class="error-banner" id="errorBanner" hidden>
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span id="errorText">Camera unavailable.</span>
+        </div>
+      </div>
+
+      <!-- Floating Info Card -->
+      <aside class="info-card glass">
+        <div class="info-card-head">
+          <span class="eyebrow small">Detected Gesture</span>
+          <h3 id="gestureName">No Hand Detected</h3>
+        </div>
+
+        <div class="combo-banner" id="comboBanner" hidden>
+          <i class="fa-solid fa-bolt"></i> <span id="comboText"></span>
+        </div>
+
+        <div class="hand-chips" id="handChips"></div>
+
+        <div class="confidence-block">
+          <div class="confidence-label">
+            <span>Confidence Score</span>
+            <span id="confidenceValue">0%</span>
+          </div>
+          <div class="confidence-bar"><div class="confidence-fill" id="confidenceFill"></div></div>
+        </div>
+
+        <div class="metric-grid">
+          <div class="metric">
+            <i class="fa-solid fa-crosshairs"></i>
+            <span class="metric-label">Detection Status</span>
+            <span class="metric-value" id="detectionStatus">Idle</span>
+          </div>
+          <div class="metric">
+            <i class="fa-solid fa-hands"></i>
+            <span class="metric-label">Hands Detected</span>
+            <span class="metric-value" id="handCount">0 / 2</span>
+          </div>
+          <div class="metric">
+            <i class="fa-solid fa-gauge-high"></i>
+            <span class="metric-label">FPS</span>
+            <span class="metric-value" id="fpsValue">0</span>
+          </div>
+          <div class="metric">
+            <i class="fa-solid fa-layer-group"></i>
+            <span class="metric-label">Landmarks</span>
+            <span class="metric-value" id="landmarkCount">0 / 21</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section class="dashboard" id="dashboard">
+    <div class="section-head">
+      <span class="eyebrow"><i class="fa-solid fa-chart-line"></i> Telemetry</span>
+      <h2>Session Dashboard</h2>
+      <p>Aggregate statistics for the current detection session.</p>
+    </div>
+
+    <div class="stat-cards">
+      <div class="stat-card glass">
+        <i class="fa-solid fa-film"></i>
+        <span class="stat-value" id="statFrames">0</span>
+        <span class="stat-label">Total Frames Processed</span>
+      </div>
+      <div class="stat-card glass">
+        <i class="fa-solid fa-hand-sparkles"></i>
+        <span class="stat-value" id="statGestures">0</span>
+        <span class="stat-label">Total Gestures Detected</span>
+      </div>
+      <div class="stat-card glass">
+        <i class="fa-solid fa-bullseye"></i>
+        <span class="stat-value" id="statCurrent">—</span>
+        <span class="stat-label">Current Gesture</span>
+      </div>
+      <div class="stat-card glass">
+        <i class="fa-solid fa-percent"></i>
+        <span class="stat-value" id="statAccuracy">0%</span>
+        <span class="stat-label">Detection Accuracy</span>
+      </div>
+      <div class="stat-card glass">
+        <i class="fa-solid fa-medal"></i>
+        <span class="stat-value" id="statBadges">0 / 9</span>
+        <span class="stat-label">Achievements Unlocked</span>
+      </div>
+    </div>
+
+    <!-- Achievement Badges -->
+    <div class="badge-shelf glass">
+      <div class="history-head">
+        <h3><i class="fa-solid fa-trophy"></i> Achievements</h3>
+        <span class="history-sub">Unlock these by trying different features</span>
+      </div>
+      <div class="badge-grid" id="badgeGrid"></div>
+    </div>
+
+    <!-- Gesture History -->
+    <div class="history-panel glass">
+      <div class="history-head">
+        <h3><i class="fa-solid fa-clock-rotate-left"></i> Gesture History</h3>
+        <span class="history-sub">Last 10 detected gestures</span>
+      </div>
+      <ul class="history-list" id="historyList">
+        <li class="history-empty">No gestures detected yet — start the camera to begin.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ SUPPORTED GESTURES ============ -->
+  <section class="gestures" id="gestures">
+    <div class="section-head">
+      <span class="eyebrow"><i class="fa-solid fa-list-check"></i> Reference</span>
+      <h2>Supported Gestures</h2>
+      <p>GestureLab recognizes eight gestures out of the box from single-hand landmark geometry.</p>
+    </div>
+    <div class="gesture-grid">
+      <div class="gesture-card glass"><i class="fa-regular fa-hand"></i><span>Open Palm</span></div>
+      <div class="gesture-card glass"><i class="fa-regular fa-hand-back-fist"></i><span>Fist</span></div>
+      <div class="gesture-card glass"><i class="fa-solid fa-hand-point-up"></i><span>One Finger</span></div>
+      <div class="gesture-card glass"><i class="fa-solid fa-hand-peace"></i><span>Two Fingers</span></div>
+      <div class="gesture-card glass"><i class="fa-solid fa-hand-spock"></i><span>Three Fingers</span></div>
+      <div class="gesture-card glass"><i class="fa-regular fa-hand"></i><span>Four Fingers</span></div>
+      <div class="gesture-card glass"><i class="fa-solid fa-hand"></i><span>Five Fingers</span></div>
+      <div class="gesture-card glass"><i class="fa-solid fa-thumbs-up"></i><span>Thumbs Up</span></div>
+      <div class="gesture-card glass"><i class="fa-solid fa-thumbs-down"></i><span>Thumbs Down</span></div>
+      <div class="gesture-card glass"><i class="fa-solid fa-circle-check"></i><span>OK Sign</span></div>
+      <div class="gesture-card glass"><i class="fa-solid fa-music"></i><span>Rock On</span></div>
+      <div class="gesture-card glass"><i class="fa-solid fa-phone"></i><span>Call Me</span></div>
+    </div>
+  </section>
+
+  <!-- ============ AIR CANVAS ============ -->
+  <section class="canvas-section" id="canvas">
+    <div class="section-head">
+      <span class="eyebrow"><i class="fa-solid fa-paintbrush"></i> Draw with Air</span>
+      <h2>Air Canvas</h2>
+      <p>Point with just your <strong>index finger</strong> to paint — use <strong>both hands at once</strong> to sketch bigger shapes together (like a heart or a square). Show an <strong>Open Palm</strong> with either hand to clear the canvas.</p>
+    </div>
+
+    <div class="canvas-grid">
+      <div class="video-panel glass">
+        <div class="video-frame" id="canvasFrame">
+          <img id="canvasStream" alt="Air canvas drawing feed" />
+          <div class="video-placeholder" id="canvasPlaceholder">
+            <i class="fa-solid fa-paintbrush"></i>
+            <p>Canvas camera is off</p>
+            <span>Click "Start Drawing" and paint in the air with your index finger.</span>
+          </div>
+          <div class="video-loader" id="canvasLoader">
+            <div class="spinner"></div>
+            <p>Preparing the canvas…</p>
+          </div>
+          <div class="corner tl"></div><div class="corner tr"></div>
+          <div class="corner bl"></div><div class="corner br"></div>
+          <span class="pen-badge" id="penBadge">Idle</span>
+        </div>
+
+        <div class="video-controls">
+          <button id="canvasStartBtn" class="btn btn-primary">
+            <i class="fa-solid fa-play"></i> Start Drawing
+          </button>
+          <button id="canvasStopBtn" class="btn btn-danger" disabled>
+            <i class="fa-solid fa-stop"></i> Stop
+          </button>
+          <button id="canvasClearBtn" class="btn btn-ghost" disabled>
+            <i class="fa-solid fa-eraser"></i> Clear
+          </button>
+          <button id="canvasSaveBtn" class="btn btn-ghost" disabled>
+            <i class="fa-solid fa-download"></i> Save PNG
+          </button>
+        </div>
+
+        <div class="error-banner" id="canvasErrorBanner" hidden>
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span id="canvasErrorText">Camera unavailable.</span>
+        </div>
+      </div>
+
+      <aside class="info-card glass canvas-tools">
+        <div class="info-card-head">
+          <span class="eyebrow small">Pen Settings</span>
+          <h3>Brush</h3>
+        </div>
+
+        <div class="swatch-row" id="colorSwatches">
+          <button class="swatch" data-color="teal" style="--sw:#00d9a6" title="Teal"></button>
+          <button class="swatch" data-color="violet" style="--sw:#7c5cff" title="Violet"></button>
+          <button class="swatch" data-color="amber" style="--sw:#ffb020" title="Amber"></button>
+          <button class="swatch" data-color="rose" style="--sw:#ff5c7c" title="Rose"></button>
+          <button class="swatch" data-color="white" style="--sw:#ffffff" title="White"></button>
+        </div>
+
+        <div class="thickness-block">
+          <div class="confidence-label"><span>Brush Size</span><span id="thicknessValue">6px</span></div>
+          <input type="range" id="thicknessSlider" min="2" max="24" value="6" class="thickness-slider">
+        </div>
+
+        <div class="metric-grid">
+          <div class="metric" style="grid-column: 1 / -1;">
+            <i class="fa-solid fa-hand-pointer"></i>
+            <span class="metric-label">Pen Mode</span>
+            <span class="metric-value" id="penModeValue">Idle</span>
+          </div>
+        </div>
+
+        <ul class="canvas-legend">
+          <li><i class="fa-solid fa-hand-point-up"></i> Index finger only → <strong>Draw</strong></li>
+          <li><i class="fa-solid fa-hands"></i> Both hands, index only → <strong>Two Pens</strong></li>
+          <li><i class="fa-regular fa-hand"></i> Open Palm → <strong>Clear</strong></li>
+          <li><i class="fa-regular fa-hand-back-fist"></i> Anything else → <strong>Pen up</strong></li>
+        </ul>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ GESTURE CONTROL ============ -->
+  <section class="control-section" id="control">
+    <div class="section-head">
+      <span class="eyebrow"><i class="fa-solid fa-sliders"></i> Gesture Actions</span>
+      <h2>Gesture Control Panel</h2>
+      <p>A live demo of gestures driving a real UI. Uses the <strong>same camera</strong> from the Live Detection section above — start it there first, then control the slideshow below with your hand.</p>
+    </div>
+
+    <div class="control-grid">
+      <div class="slideshow glass">
+        <div class="slide-viewport">
+          <div class="slide" id="slideDisplay">
+            <span class="slide-index" id="slideIndex">1 / 5</span>
+            <span class="slide-title" id="slideTitle">Sunrise Teal</span>
+            <button class="fav-btn" id="favBtn" title="Toggle favorite"><i class="fa-regular fa-heart"></i></button>
+          </div>
+        </div>
+        <div class="slide-dots" id="slideDots"></div>
+        <div class="volume-row">
+          <i class="fa-solid fa-volume-low"></i>
+          <div class="volume-bar"><div class="volume-fill" id="volumeFill"></div></div>
+          <span id="volumeValue" class="mono-tag">40%</span>
+        </div>
+      </div>
+
+      <aside class="info-card glass">
+        <div class="info-card-head">
+          <span class="eyebrow small">Last Action</span>
+          <h3 id="lastAction">Waiting for a gesture…</h3>
+        </div>
+        <ul class="canvas-legend">
+          <li><i class="fa-regular fa-hand"></i> Open Palm → <strong>Play / Pause</strong></li>
+          <li><i class="fa-regular fa-hand-back-fist"></i> Fist → <strong>Stop &amp; Reset</strong></li>
+          <li><i class="fa-solid fa-hand-point-up"></i> One Finger → <strong>Next Slide</strong></li>
+          <li><i class="fa-solid fa-hand-peace"></i> Two Fingers → <strong>Previous Slide</strong></li>
+          <li><i class="fa-solid fa-hand-spock"></i> Three Fingers → <strong>Volume Up</strong></li>
+          <li><i class="fa-regular fa-hand"></i> Four Fingers → <strong>Volume Down</strong></li>
+          <li><i class="fa-solid fa-thumbs-up"></i> Thumbs Up → <strong>Favorite</strong></li>
+        </ul>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ ROCK PAPER SCISSORS ============ -->
+  <section class="rps-section" id="rps">
+    <div class="section-head">
+      <span class="eyebrow"><i class="fa-solid fa-gamepad"></i> Mini Game</span>
+      <h2>Rock Paper Scissors</h2>
+      <p>Uses the <strong>same camera</strong> from Live Detection above — start it there first. <i class="fa-regular fa-hand-back-fist"></i> Fist = Rock · <i class="fa-regular fa-hand"></i> Open Palm = Paper · <i class="fa-solid fa-hand-peace"></i> Two Fingers = Scissors.</p>
+    </div>
+
+    <div class="rps-grid glass">
+      <div class="rps-arena">
+        <div class="rps-side">
+          <span class="rps-label">You</span>
+          <div class="rps-move" id="playerMove"><i class="fa-solid fa-question"></i></div>
+        </div>
+        <div class="rps-vs">
+          <span id="rpsStatus">Ready?</span>
+        </div>
+        <div class="rps-side">
+          <span class="rps-label">Computer</span>
+          <div class="rps-move" id="computerMove"><i class="fa-solid fa-question"></i></div>
+        </div>
+      </div>
+
+      <div class="rps-result" id="rpsResult"></div>
+
+      <div class="rps-controls">
+        <button class="btn btn-primary" id="rpsPlayBtn"><i class="fa-solid fa-play"></i> Play Round</button>
+        <button class="btn btn-ghost" id="rpsResetBtn"><i class="fa-solid fa-rotate-left"></i> Reset Score</button>
+      </div>
+
+      <div class="rps-scoreboard">
+        <div class="rps-score"><span id="rpsWins">0</span><label>Wins</label></div>
+        <div class="rps-score"><span id="rpsLosses">0</span><label>Losses</label></div>
+        <div class="rps-score"><span id="rpsDraws">0</span><label>Draws</label></div>
+        <div class="rps-score"><span id="rpsStreak">0</span><label>Streak</label></div>
+        <div class="rps-score highlight"><span id="rpsBestStreak">0</span><label>Best Streak</label></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ABOUT ============ -->
+  <section class="about" id="about">
+    <div class="about-inner glass">
+      <div class="about-copy">
+        <span class="eyebrow"><i class="fa-solid fa-microchip"></i> Under the hood</span>
+        <h2>How it works</h2>
+        <p>Every frame from your webcam is captured server-side with OpenCV, passed through
+        MediaPipe's hand landmark model to extract 21 3D keypoints, then run through a
+        lightweight geometric classifier that measures finger extension angles to determine
+        the gesture — all in well under a video frame's worth of time.</p>
+        <ul class="tech-list">
+          <li><i class="fa-brands fa-python"></i> Python + Flask backend</li>
+          <li><i class="fa-solid fa-eye"></i> OpenCV frame capture &amp; encoding</li>
+          <li><i class="fa-solid fa-hand-dots"></i> MediaPipe Hands landmark model</li>
+          <li><i class="fa-solid fa-code"></i> Vanilla JS + streaming MJPEG feed</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span>© 2026 GestureLab — built with Flask, OpenCV &amp; MediaPipe.</span>
+    <div class="footer-links">
+      <a href="#top">Back to top <i class="fa-solid fa-arrow-up"></i></a>
+    </div>
+  </div>
+</footer>
+
+<div class="badge-toast-container" id="badgeToastContainer" aria-live="polite"></div>
+
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
